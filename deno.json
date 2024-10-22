@@ -1,0 +1,23 @@
+{
+  "tasks": {
+    "dev": "deno run --watch -N main.ts",
+    "debug": "deno run --watch -N --inspect-wait main.ts"
+  },
+  "imports": {
+    "@oak/oak": "jsr:@oak/oak@^17.1.0",
+    "@std/assert": "jsr:@std/assert@1",
+    "@trpc/server": "jsr:@trpc/server@^0.0.5",
+    "reflect-metadata": "npm:reflect-metadata@^0.2.2",
+    "tsyringe": "npm:tsyringe@^4.8.0",
+    "@enums/": "./enums/",
+    "@primitives/": "./primitives/",
+    "@models/": "./models/",
+    "@types/": "./types/",
+    "@utils/": "./utils/",
+    "@decorators/": "./decorators/"
+  },
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
