@@ -9,6 +9,7 @@
     "@trpc/server": "jsr:@trpc/server@^0.0.5",
     "reflect-metadata": "npm:reflect-metadata@^0.2.2",
     "tsyringe": "npm:tsyringe@^4.8.0",
+    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts",
     "@enums/": "./enums/",
     "@primitives/": "./primitives/",
     "@models/": "./models/",

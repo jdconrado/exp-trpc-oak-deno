@@ -1,8 +1,10 @@
-import { Router, type RouterContext } from '@oak/oak';
+import { Router, type BodyType, type RouterContext } from '@oak/oak';
+import { Body } from '@oak/oak/body';
 import { ControllerMetadata } from '@models/index.ts';
-import { CONTROLLER_METADATA_KEY, CTX_METADATA_KEY, ROUTE_METADATA_KEY } from '@decorators/index.ts';
-import { IRouteMetadata } from '@primitives/index.ts';
-import { HttpMethod } from "@enums/index.ts";
+import { ARG_METADATA_KEY, CONTROLLER_METADATA_KEY, ROUTE_METADATA_KEY } from '@decorators/index.ts';
+import { IRouteMetadata, type IRouteResolverArgMetadata } from '@primitives/index.ts';
+import { HttpMethod, RouteResolverArgTypeCd } from "@enums/index.ts";
+import { object } from "zod";
 
 export abstract class HttpUtils {
 
@@ -23,7 +25,7 @@ export abstract class HttpUtils {
       if (!route.resolverFn) {
         throw new Error(`Resolver function not found for route: ${route.path}`);
       }
-      const wrappedResolverFn = this.wrapResolverFn(route.resolverFn, controller);
+      const wrappedResolverFn = this.wrapResolverFn(route, controller);
       switch (route.method) {
         case HttpMethod.GET:
           router.get(route.path, wrappedResolverFn);
@@ -57,12 +59,14 @@ export abstract class HttpUtils {
       if (typeof method === 'function') {
         const hasOwnMetadata = Reflect.hasOwnMetadata(
           ROUTE_METADATA_KEY,
-          method
+          prototype,
+          propertyName
         );
         if (hasOwnMetadata) {
           const metadata = Reflect.getOwnMetadata(
             ROUTE_METADATA_KEY,
-            method
+            prototype,
+            propertyName
           );
           if (metadata) {
             routes.push(metadata);
@@ -74,24 +78,132 @@ export abstract class HttpUtils {
     return routes;
   }
 
-  private static wrapResolverFn(resolverFn: Function, controller: object) {
-    const prototype = Object.getPrototypeOf(controller);
+  private static wrapResolverFn(route: IRouteMetadata, controller: object) {
+    const routeArgsMetadata: IRouteResolverArgMetadata[] = Reflect.getOwnMetadata(ARG_METADATA_KEY, Object.getPrototypeOf(controller), route.resolverFn!.name) || [];
     return async (ctx: RouterContext<string, any, Record<string, any>>) => {
-      const ctxParameters: number[] = Reflect.getOwnMetadata(CTX_METADATA_KEY, prototype, resolverFn.name) || [];
-      
-      if (ctxParameters.length === 0) {
+      try{
+        if (!routeArgsMetadata.length) {
           // No ctx parameter found, set the return value to ctx.response.body
-          ctx.response.body = await resolverFn.apply(controller);
+          ctx.response.body = await route.resolverFn!.apply(controller);
           return;
+        }
+
+        const args = await this.resolveParameters(ctx, routeArgsMetadata);
+        const result = await route.resolverFn!.apply(controller, args);
+
+        // If ctx.response.body is not set, use the result from resolverFn
+        if (ctx.response.body === undefined && result !== undefined) {
+          ctx.response.body = result;
+        }
+      }catch(err: any) {
+        //console.error(err);
+        ctx.response.status = 500;
+        ctx.response.body = {error: err};
       }
+      
+    };
+  }
 
-      const maxIndex = Math.max(...ctxParameters);
-      const newArgs = new Array(maxIndex + 1).fill(null);
-      ctxParameters.forEach(index => {
-          newArgs[index] = ctx;
-      });
+  private static async resolveParameters(
+    ctx: RouterContext<string, any, Record<string, any>>,
+    argsMetadata: IRouteResolverArgMetadata[]
+  ): Promise<any[]> {
+    const args = [];
+  
+    for (const argMeta of argsMetadata) {
+      const { typeCd, index, name, validator } = argMeta;
+      let value: any;
+  
+      try {
+        switch (typeCd) {
+          case RouteResolverArgTypeCd.BODY: {
+            if (!ctx.request.hasBody) {
+              throw new Error('Request body is missing');
+            }
+            
+            const body = ctx.request.body;
+            const type = ctx.request.body.type();
+            value = await this.parseBody(body, type);
+            value = validator ? validator.parse(value) : value;
+            break;
+          }
 
-      await resolverFn.apply(controller, newArgs);
-  };
+          case RouteResolverArgTypeCd.PARAM:
+            value = name ? ctx.params[name] : ctx.params;
+            value = validator ? validator.parse(value) : value;
+            break;
+  
+          case RouteResolverArgTypeCd.QUERY:
+            if(name) {
+              value = ctx.request.url.searchParams.get(name);
+            }else{
+              value = {};
+              for (const [key, val] of ctx.request.url.searchParams.entries()) {
+                if (key.endsWith('[]')) {
+                  const baseKey = key.slice(0, -2);
+                  // Check if the existing value is an array or not
+                  if (Array.isArray(value[baseKey])) {
+                    value[baseKey].push(val); 
+                  } else {
+                    value[baseKey] = [val]; // Create an array if it's not
+                  }
+                } else {
+                  value[key] = val;
+                }
+              }
+            }
+            value = validator ? validator.parse(value) : value;
+            break;
+  
+          case RouteResolverArgTypeCd.HEADER:
+            value = name ? ctx.request.headers.get(name)  : Object.fromEntries(ctx.request.headers.entries());
+            value = validator ? validator.parse(value) : value;
+            break;
+  
+          case RouteResolverArgTypeCd.REQ:
+            value = ctx.request;
+            break;
+  
+          case RouteResolverArgTypeCd.RES:
+            value = ctx.response;
+            break;
+  
+          case RouteResolverArgTypeCd.CTX:
+            value = ctx;
+            break;
+  
+          default:
+            throw new Error(`Unsupported parameter type: ${typeCd}`);
+        }
+      } catch (e: any) {
+        // Handle validation errors
+        ctx.response.status = 400;
+        ctx.response.body = { error: e.errors || e.message || 'Validation error' };
+        throw e;
+      }
+  
+      args[index] = value;
+    }
+  
+    return args;
+  }
+
+  private static async parseBody(body: Body, type: BodyType) {
+    switch (type) {
+      case 'json':
+        return await body.json();
+      case 'text':
+        return await body.text();
+      case 'form-data':
+        return await body.formData();
+      case 'form':
+        return await body.formData();
+      case 'binary':
+        return await body.arrayBuffer();
+      default: {
+        const textBody = await body.text();
+        return textBody ? JSON.parse(textBody) : undefined;
+      }
+    }
   }
 }

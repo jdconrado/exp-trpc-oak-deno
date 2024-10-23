@@ -2,8 +2,10 @@ import { Controller } from "@decorators/controller.decorator.ts";
 import { Get, Post } from "@decorators/route.decorator.ts";
 import { inject } from "tsyringe";
 import { TaskService } from './task.service.ts';
-import type { ITask } from "@primitives/index.ts";
-import { Ctx } from "@decorators/http-endpoint.decorator.ts";
+import { Ctx, Query } from "@decorators/http-endpoint.decorator.ts";
+import { Body, Header } from "@decorators/index.ts";
+import { CreateTaskSchema } from "./schemas/index.ts";
+import type { CreateTaskDto } from "./schemas/index.ts";
 
 @Controller('/tasks')
 export class TaskController {
@@ -18,8 +20,8 @@ export class TaskController {
     }
 
     @Get('/test')
-    async test( @Ctx() ctx: any) {
-        ctx.response.body = 'Hello World';
+    async test( @Ctx() ctx: any, @Query() query?: object) {
+        ctx.response.body = { message: 'Hello, World!', query };
     }
 
     @Get('/:id')
@@ -28,7 +30,8 @@ export class TaskController {
     }
 
     @Post('/')
-    async createTask(taskInput: Omit<ITask, 'id' | 'status'>) {
-        return this.taskService.createTask(taskInput);
+    async createTask(@Body(CreateTaskSchema) taskInput: CreateTaskDto, @Header('user-agent') headers: string) {
+        const result = await this.taskService.createTask(taskInput);
+        return { task: result, headers };
     }
 }

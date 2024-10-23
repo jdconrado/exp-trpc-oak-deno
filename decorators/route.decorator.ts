@@ -9,7 +9,7 @@ function Route(path: string, method: HttpMethod) {
       path,
       method,
       resolverFn: descriptor.value,
-    }), descriptor.value);
+    }), target, propertyKey);
   };
 }
 
