@@ -1,6 +1,7 @@
-import { HttpMethod } from "@enums/index.ts";
+import { HttpMethod, RouteType, TRPCProcedureType } from "@enums/index.ts";
 export interface IRouteMetadata {
   path: string;
-  method: HttpMethod;
+  type: RouteType;
+  subType: HttpMethod | TRPCProcedureType;
   resolverFn: Function | null;
 }

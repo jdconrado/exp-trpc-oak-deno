@@ -2,8 +2,8 @@ import { Router, type BodyType, type RouterContext } from '@oak/oak';
 import { Body } from '@oak/oak/body';
 import { ControllerMetadata } from '@models/index.ts';
 import { ARG_METADATA_KEY, CONTROLLER_METADATA_KEY, ROUTE_METADATA_KEY } from '@decorators/index.ts';
-import { IRouteMetadata, type IRouteResolverArgMetadata } from '@primitives/index.ts';
-import { HttpMethod, RouteResolverArgTypeCd } from "@enums/index.ts";
+import { IRouteMetadata, type IResolverArgMetadata } from '@primitives/index.ts';
+import { HttpMethod, HTTPResolverArgTypeCd } from "@enums/index.ts";
 import { object } from "zod";
 
 export abstract class HttpUtils {
@@ -21,12 +21,12 @@ export abstract class HttpUtils {
   private static parseRoutes(router: Router, controller: object): void {
     const routes = this.getControllerRoutes(controller);
     routes.forEach(route => {
-      console.log(`Parsing route: ${route.method} ${route.path}`);
+      console.log(`Parsing route: ${route.subType} ${route.path}`);
       if (!route.resolverFn) {
         throw new Error(`Resolver function not found for route: ${route.path}`);
       }
       const wrappedResolverFn = this.wrapResolverFn(route, controller);
-      switch (route.method) {
+      switch (route.subType) {
         case HttpMethod.GET:
           router.get(route.path, wrappedResolverFn);
           break;
@@ -43,7 +43,7 @@ export abstract class HttpUtils {
           router.patch(route.path, wrappedResolverFn);
           break;
         default:
-          throw new Error(`Unsupported HTTP method: ${route.method}`);
+          throw new Error(`Unsupported HTTP method: ${route.subType}`);
       }
     });
   }
@@ -79,7 +79,7 @@ export abstract class HttpUtils {
   }
 
   private static wrapResolverFn(route: IRouteMetadata, controller: object) {
-    const routeArgsMetadata: IRouteResolverArgMetadata[] = Reflect.getOwnMetadata(ARG_METADATA_KEY, Object.getPrototypeOf(controller), route.resolverFn!.name) || [];
+    const routeArgsMetadata: IResolverArgMetadata[] = Reflect.getOwnMetadata(ARG_METADATA_KEY, Object.getPrototypeOf(controller), route.resolverFn!.name) || [];
     return async (ctx: RouterContext<string, any, Record<string, any>>) => {
       try{
         if (!routeArgsMetadata.length) {
@@ -106,7 +106,7 @@ export abstract class HttpUtils {
 
   private static async resolveParameters(
     ctx: RouterContext<string, any, Record<string, any>>,
-    argsMetadata: IRouteResolverArgMetadata[]
+    argsMetadata: IResolverArgMetadata[]
   ): Promise<any[]> {
     const args = [];
   
@@ -116,7 +116,7 @@ export abstract class HttpUtils {
   
       try {
         switch (typeCd) {
-          case RouteResolverArgTypeCd.BODY: {
+          case HTTPResolverArgTypeCd.BODY: {
             if (!ctx.request.hasBody) {
               throw new Error('Request body is missing');
             }
@@ -128,12 +128,12 @@ export abstract class HttpUtils {
             break;
           }
 
-          case RouteResolverArgTypeCd.PARAM:
+          case HTTPResolverArgTypeCd.PARAM:
             value = name ? ctx.params[name] : ctx.params;
             value = validator ? validator.parse(value) : value;
             break;
   
-          case RouteResolverArgTypeCd.QUERY:
+          case HTTPResolverArgTypeCd.QUERY:
             if(name) {
               value = ctx.request.url.searchParams.get(name);
             }else{
@@ -155,20 +155,20 @@ export abstract class HttpUtils {
             value = validator ? validator.parse(value) : value;
             break;
   
-          case RouteResolverArgTypeCd.HEADER:
+          case HTTPResolverArgTypeCd.HEADER:
             value = name ? ctx.request.headers.get(name)  : Object.fromEntries(ctx.request.headers.entries());
             value = validator ? validator.parse(value) : value;
             break;
   
-          case RouteResolverArgTypeCd.REQ:
+          case HTTPResolverArgTypeCd.REQ:
             value = ctx.request;
             break;
   
-          case RouteResolverArgTypeCd.RES:
+          case HTTPResolverArgTypeCd.RES:
             value = ctx.response;
             break;
   
-          case RouteResolverArgTypeCd.CTX:
+          case HTTPResolverArgTypeCd.CTX:
             value = ctx;
             break;
   

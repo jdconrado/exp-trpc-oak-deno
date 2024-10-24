@@ -1,4 +1,4 @@
-export enum RouteResolverArgTypeCd {
+export enum HTTPResolverArgTypeCd {
   CTX = 'CTX',
   BODY = 'BODY',
   PARAM = 'PARAM',

@@ -1,29 +1,21 @@
 import { ZodSchema } from 'zod';
-import { RouteResolverArgTypeCd } from "@enums/index.ts";
-import { RouteResolverArgMetadata } from "@models/index.ts";
-import { IRouteResolverArgMetadata } from "@primitives/index.ts";
+import { HTTPResolverArgTypeCd } from "@enums/index.ts";
+import { SetArgMetadata } from "@decorators/helpers/resolver-arg-decorator.helper.ts";
+import { HttpMethod, RouteType } from "@enums/index.ts";
+import { Route } from "@decorators/route.decorator.ts";
 
 export const ARG_METADATA_KEY = Symbol('ARG_METADATA_KEY');
 
-export function SetArgMetadata(
-  typeCd: RouteResolverArgTypeCd,
-  name?: string,
-  validator?: ZodSchema<unknown>
-): ParameterDecorator {
-  return (target, propertyKey, parameterIndex) => {
-    if (!propertyKey) {
-      throw new Error('SetArgMetadata decorator can only be used on method parameters');
-    }
-    const argsMetadata: IRouteResolverArgMetadata[] = Reflect.getOwnMetadata(ARG_METADATA_KEY, target, propertyKey) || [];
-    argsMetadata.push(new RouteResolverArgMetadata({ typeCd, index: parameterIndex, name, validator }));
-    Reflect.defineMetadata(ARG_METADATA_KEY, argsMetadata, target, propertyKey);
-  };
-}
+export const Get = (path: string) => Route(path, RouteType.HTTP, HttpMethod.GET);
+export const Post = (path: string) => Route(path, RouteType.HTTP, HttpMethod.POST);
+export const Put = (path: string) => Route(path, RouteType.HTTP, HttpMethod.PUT);
+export const Delete = (path: string) => Route(path, RouteType.HTTP, HttpMethod.DELETE);
+export const Patch = (path: string) => Route(path, RouteType.HTTP, HttpMethod.PATCH);
 
-export const Body = (validator?: ZodSchema<unknown>) => SetArgMetadata(RouteResolverArgTypeCd.BODY, undefined, validator);
-export const Query = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(RouteResolverArgTypeCd.QUERY, name, validator);
-export const Param = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(RouteResolverArgTypeCd.PARAM, name, validator);
-export const Header = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(RouteResolverArgTypeCd.HEADER, name, validator);
-export const Req = () => SetArgMetadata(RouteResolverArgTypeCd.REQ);
-export const Res = () => SetArgMetadata(RouteResolverArgTypeCd.RES);
-export const Ctx = () => SetArgMetadata(RouteResolverArgTypeCd.CTX);
+export const Body = (validator?: ZodSchema<unknown>) => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.BODY, undefined, validator);
+export const Query = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.QUERY, name, validator);
+export const Param = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.PARAM, name, validator);
+export const Header = (name?: string, validator?: ZodSchema<unknown>) => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.HEADER, name, validator);
+export const Req = () => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.REQ);
+export const Res = () => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.RES);
+export const Ctx = () => SetArgMetadata(ARG_METADATA_KEY, HTTPResolverArgTypeCd.CTX);
