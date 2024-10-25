@@ -4,13 +4,13 @@ import type { RouteType } from "../../enums/route-type.enum.ts";
 import type { TRPCProcedureType } from "@enums/index.ts";
 
 export class RouteMetadata implements IRouteMetadata {
-  path: string;
+  path: string | null;
   type: RouteType;
   subType: HttpMethod | TRPCProcedureType;
 
   resolverFn: Function | null;
   
-  constructor(input: {path: string, type: RouteType, subType: HttpMethod | TRPCProcedureType, resolverFn: Function}) {
+  constructor(input: {path: string | null, type: RouteType, subType: HttpMethod | TRPCProcedureType, resolverFn: Function}) {
     this.path = input.path;
     this.subType = input.subType;
     this.resolverFn = input.resolverFn;
