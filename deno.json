@@ -1,7 +1,8 @@
 {
   "tasks": {
     "dev": "deno run --watch -N main.ts",
-    "debug": "deno run --watch -N --inspect-wait main.ts"
+    "debug": "deno run --watch -N --inspect-wait main.ts",
+    "start": "deno run --allow-net --allow-read mod.ts"
   },
   "imports": {
     "@oak/oak": "jsr:@oak/oak@^17.1.0",
@@ -19,6 +20,7 @@
   },
   "compilerOptions": {
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "lib": ["deno.ns", "deno.window", "dom"]
   }
 }
